@@ -1,0 +1,10 @@
+{
+  "minSize": 500,
+  "minReduction": 0.2,
+  "maxInputChars": 50000,
+  "excludeTools": [],
+  "useTranscript": false,
+  "transcriptLines": 10,
+  "model": null,
+  "timeout": 50000
+}

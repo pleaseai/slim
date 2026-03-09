@@ -1,0 +1,23 @@
+{
+  "enabledPlugins": {
+    "plugin-dev@claude-plugins-official": true,
+    "context7-plugin@context7-marketplace": true,
+    "slim@slim": true
+  },
+  "language": "english",
+  "extraKnownMarketplaces": {
+    "context7-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "context7/claude-plugins"
+      },
+      "autoUpdate": true
+    },
+    "slim": {
+      "source": {
+        "source": "directory",
+        "path": "./"
+      }
+    }
+  }
+}

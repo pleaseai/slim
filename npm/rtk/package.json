@@ -1,0 +1,32 @@
+{
+  "name": "@pleaseai/rtk",
+  "version": "0.27.2",
+  "description": "RTK - Reduce LLM token consumption by 60-90%",
+  "bin": {
+    "rtk": "./bin/rtk.js"
+  },
+  "files": [
+    "bin/rtk.js"
+  ],
+  "optionalDependencies": {
+    "@pleaseai/rtk-darwin-arm64": "0.27.2",
+    "@pleaseai/rtk-darwin-x64": "0.27.2",
+    "@pleaseai/rtk-linux-arm64": "0.27.2",
+    "@pleaseai/rtk-linux-x64": "0.27.2",
+    "@pleaseai/rtk-win32-x64": "0.27.2"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rtk-ai/rtk"
+  },
+  "license": "MIT",
+  "keywords": [
+    "rtk",
+    "llm",
+    "token",
+    "compression"
+  ]
+}
