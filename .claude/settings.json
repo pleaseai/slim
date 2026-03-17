@@ -2,9 +2,17 @@
   "enabledPlugins": {
     "plugin-dev@claude-plugins-official": true,
     "context7-plugin@context7-marketplace": true,
-    "slim@slim": true
+    "slim@slim": true,
+    "please@passionfactory": true,
+    "bun@passionfactory": true,
+    "github@passionfactory": true,
+    "gh-please@passionfactory": true,
+    "review@passionfactory": true,
+    "context@passionfactory": true,
+    "testing@passionfactory": true,
+    "tidy-first@passionfactory": true,
+    "standards@passionfactory": true
   },
-  "language": "english",
   "extraKnownMarketplaces": {
     "context7-marketplace": {
       "source": {
@@ -19,5 +27,6 @@
         "path": "./"
       }
     }
-  }
+  },
+  "language": "english"
 }
