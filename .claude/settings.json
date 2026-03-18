@@ -28,5 +28,29 @@
       }
     }
   },
-  "language": "english"
+  "language": "english",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^mcp__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-mcp-tool-use.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stop-size-check.sh"
+          }
+        ]
+      }
+    ]
+  }
 }
