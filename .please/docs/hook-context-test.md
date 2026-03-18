@@ -5,6 +5,34 @@
 Test whether `updatedMCPToolOutput` actually reduces context window usage
 by using a custom MCP server that generates exact token amounts.
 
+## Test Results (2026-03-18)
+
+### Finding: `updatedMCPToolOutput` does NOT reduce context
+
+| | Hook OFF | Hook ON | Difference |
+|---|---|---|---|
+| input_tokens | 23 | 23 | 0 |
+| cache_creation | 60,521 | 60,513 | -8 |
+| cache_read | 60,052 | 60,052 | 0 |
+| **total context** | **~120,573** | **~120,565** | **~8 tokens** |
+
+With `generate_tokens(15000)`, the total context is virtually identical
+whether the hook replaces the output or not.
+
+### Analysis
+
+The original MCP tool response is already included in the context **before**
+the PostToolUse hook executes. `updatedMCPToolOutput` appears to only affect
+what is shown in the transcript/UI, not the actual tokens sent to the model.
+
+### Implications
+
+- `updatedMCPToolOutput` is useful for **logging/UI** but not for **context savings**
+- To actually reduce context from large MCP responses, a different approach is needed:
+  - PreToolUse hook to intercept before the call
+  - MCP server-side response truncation
+  - Custom MCP proxy that filters responses before returning
+
 ## Setup
 
 ### Test MCP Server
@@ -19,59 +47,18 @@ by using a custom MCP server that generates exact token amounts.
 { "test": { "command": "bun", "args": ["test-mcp-server.ts"] } }
 ```
 
-## Test Procedure
-
-### Session A: Hook OFF
+## Automated Test
 
 ```bash
-MCP_HOOK_ENABLED=0 claude
+bash test-hook-context.sh [token_count]
+bash test-hook-context.sh 15000
+bash test-hook-context.sh 50000
 ```
 
-1. `/cost` - record baseline
-2. Call `generate_tokens(5000)` - below threshold
-3. `/cost` - record delta A1
-4. Call `generate_tokens(15000)` - above threshold
-5. `/cost` - record delta A2
-6. Call `generate_tokens(50000)` - well above threshold
-7. `/cost` - record delta A3
+Uses `claude -p` with `--output-format json` and `--model haiku` for fast, cheap testing.
+Compares total context tokens (input + cache_creation + cache_read) between hook ON/OFF.
 
-### Session B: Hook ON
-
-```bash
-MCP_HOOK_ENABLED=1 claude
-# or just: claude (default is enabled)
-```
-
-1. `/cost` - record baseline
-2. Call `generate_tokens(5000)` - below threshold (should pass through)
-3. `/cost` - record delta B1
-4. Call `generate_tokens(15000)` - above threshold (should replace)
-5. `/cost` - record delta B2
-6. Call `generate_tokens(50000)` - well above threshold (should replace)
-7. `/cost` - record delta B3
-
-### Expected Results
-
-| count  | Hook OFF (delta) | Hook ON (delta) | Savings |
-|--------|-----------------|-----------------|---------|
-| 5,000  | ~5,000 tokens   | ~5,000 tokens   | 0% (below threshold) |
-| 15,000 | ~15,000 tokens  | ~200 tokens     | ~98%    |
-| 50,000 | ~50,000 tokens  | ~200 tokens     | ~99%    |
-
-### Verification
-
-- Delta B1 should equal Delta A1 (below threshold, no replacement)
-- Delta B2 should be << Delta A2 (above threshold, replaced)
-- Delta B3 should be << Delta A3 (well above threshold, replaced)
-
-## Key Question
-
-Does `updatedMCPToolOutput` **replace** what enters the context window,
-or does the original response **already exist** in context before the hook runs?
-
-If deltas are similar between A and B for above-threshold calls,
-then the original response is already in context and `updatedMCPToolOutput`
-only appends rather than replaces.
+Note: `total_cost_usd` is not meaningful for subscription users.
 
 ## Environment Variables
 
@@ -84,3 +71,5 @@ only appends rather than replaces.
 ## Reference
 
 - [PostToolUse Hook Docs](https://code.claude.com/docs/en/hooks#posttooluse-decision-control)
+- [CLI Reference](https://code.claude.com/docs/en/cli-reference)
+- [Headless Mode](https://code.claude.com/docs/en/headless)

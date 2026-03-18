@@ -5,7 +5,8 @@
 #   A: MCP_HOOK_ENABLED=0 (hook off)
 #   B: MCP_HOOK_ENABLED=1 (hook on)
 #
-# Compares input_tokens from --output-format json usage data
+# Compares total context tokens (input + cache_creation + cache_read)
+# from --output-format json usage data
 #
 # Usage:
 #   bash test-hook-context.sh [token_count]
@@ -49,41 +50,63 @@ MCP_HOOK_ENABLED=1 claude -p "$PROMPT" \
   --no-session-persistence \
   > "$REPORT_DIR/test-b.json" 2>/dev/null || true
 
-# Compare results
+# Extract token counts
+extract_tokens() {
+  local file=$1
+  jq -r '{
+    input: .usage.input_tokens,
+    cache_creation: .usage.cache_creation_input_tokens,
+    cache_read: .usage.cache_read_input_tokens,
+    output: .usage.output_tokens,
+    total_context: ((.usage.input_tokens // 0) + (.usage.cache_creation_input_tokens // 0) + (.usage.cache_read_input_tokens // 0))
+  }' "$file" 2>/dev/null
+}
+
+A_DATA=$(extract_tokens "$REPORT_DIR/test-a.json")
+B_DATA=$(extract_tokens "$REPORT_DIR/test-b.json")
+
+A_INPUT=$(echo "$A_DATA" | jq -r '.input')
+A_CACHE_CREATE=$(echo "$A_DATA" | jq -r '.cache_creation')
+A_CACHE_READ=$(echo "$A_DATA" | jq -r '.cache_read')
+A_OUTPUT=$(echo "$A_DATA" | jq -r '.output')
+A_TOTAL=$(echo "$A_DATA" | jq -r '.total_context')
+
+B_INPUT=$(echo "$B_DATA" | jq -r '.input')
+B_CACHE_CREATE=$(echo "$B_DATA" | jq -r '.cache_creation')
+B_CACHE_READ=$(echo "$B_DATA" | jq -r '.cache_read')
+B_OUTPUT=$(echo "$B_DATA" | jq -r '.output')
+B_TOTAL=$(echo "$B_DATA" | jq -r '.total_context')
+
+# Display results
 echo ""
 echo "=== Results ==="
-
-A_INPUT=$(jq -r '.usage.input_tokens // "N/A"' "$REPORT_DIR/test-a.json" 2>/dev/null || echo "N/A")
-A_OUTPUT=$(jq -r '.usage.output_tokens // "N/A"' "$REPORT_DIR/test-a.json" 2>/dev/null || echo "N/A")
-A_COST=$(jq -r '.cost_usd // "N/A"' "$REPORT_DIR/test-a.json" 2>/dev/null || echo "N/A")
-
-B_INPUT=$(jq -r '.usage.input_tokens // "N/A"' "$REPORT_DIR/test-b.json" 2>/dev/null || echo "N/A")
-B_OUTPUT=$(jq -r '.usage.output_tokens // "N/A"' "$REPORT_DIR/test-b.json" 2>/dev/null || echo "N/A")
-B_COST=$(jq -r '.cost_usd // "N/A"' "$REPORT_DIR/test-b.json" 2>/dev/null || echo "N/A")
-
 echo ""
-echo "┌─────────────────┬──────────────────┬──────────────────┐"
-echo "│                 │  Hook OFF (A)    │  Hook ON (B)     │"
-echo "├─────────────────┼──────────────────┼──────────────────┤"
-printf "│ input_tokens    │ %16s │ %16s │\n" "$A_INPUT" "$B_INPUT"
-printf "│ output_tokens   │ %16s │ %16s │\n" "$A_OUTPUT" "$B_OUTPUT"
-printf "│ cost_usd        │ %16s │ %16s │\n" "$A_COST" "$B_COST"
-echo "└─────────────────┴──────────────────┴──────────────────┘"
+echo "┌───────────────────────┬──────────────────┬──────────────────┐"
+echo "│                       │  Hook OFF (A)    │  Hook ON (B)     │"
+echo "├───────────────────────┼──────────────────┼──────────────────┤"
+printf "│ input_tokens          │ %16s │ %16s │\n" "$A_INPUT" "$B_INPUT"
+printf "│ cache_creation        │ %16s │ %16s │\n" "$A_CACHE_CREATE" "$B_CACHE_CREATE"
+printf "│ cache_read            │ %16s │ %16s │\n" "$A_CACHE_READ" "$B_CACHE_READ"
+printf "│ output_tokens         │ %16s │ %16s │\n" "$A_OUTPUT" "$B_OUTPUT"
+echo "├───────────────────────┼──────────────────┼──────────────────┤"
+printf "│ TOTAL CONTEXT         │ %16s │ %16s │\n" "$A_TOTAL" "$B_TOTAL"
+echo "└───────────────────────┴──────────────────┴──────────────────┘"
 
-# Calculate savings if both are numbers
-if [[ "$A_INPUT" =~ ^[0-9]+$ ]] && [[ "$B_INPUT" =~ ^[0-9]+$ ]]; then
-  DIFF=$((A_INPUT - B_INPUT))
-  if [ "$A_INPUT" -gt 0 ]; then
-    PERCENT=$((DIFF * 100 / A_INPUT))
-    echo ""
-    echo "Input token difference: $DIFF ($PERCENT% reduction)"
-    if [ "$DIFF" -gt 1000 ]; then
-      echo "=> Hook IS reducing context usage"
-    elif [ "$DIFF" -gt -1000 ] && [ "$DIFF" -lt 1000 ]; then
-      echo "=> No significant difference - hook may NOT be replacing context"
-    else
-      echo "=> Hook ON uses MORE tokens (unexpected)"
-    fi
+# Calculate savings
+if [[ "$A_TOTAL" =~ ^[0-9]+$ ]] && [[ "$B_TOTAL" =~ ^[0-9]+$ ]] && [ "$A_TOTAL" -gt 0 ]; then
+  DIFF=$((A_TOTAL - B_TOTAL))
+  PERCENT=$((DIFF * 100 / A_TOTAL))
+  CACHE_DIFF=$((A_CACHE_CREATE - B_CACHE_CREATE))
+  echo ""
+  echo "Total context difference: $DIFF tokens ($PERCENT%)"
+  echo "Cache creation difference: $CACHE_DIFF tokens"
+  echo ""
+  if [ "$DIFF" -gt 1000 ]; then
+    echo "=> Hook IS reducing context usage"
+  elif [ "$DIFF" -gt -1000 ] && [ "$DIFF" -lt 1000 ]; then
+    echo "=> No significant difference - updatedMCPToolOutput may NOT replace context"
+  else
+    echo "=> Hook ON uses MORE tokens (unexpected)"
   fi
 fi
 
