@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
+    },
+    "test": {
+      "command": "bun",
+      "args": [
+        "test-mcp-server.ts"
+      ]
+    }
+  }
+}
